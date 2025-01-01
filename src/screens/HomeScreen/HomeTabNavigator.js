@@ -1,5 +1,5 @@
 import {Image, StyleSheet} from 'react-native';
-import React from 'react';
+import React, {useEffect, useState} from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import HomeScreen from './HomeScreen';
 import ScheduleTasks from '../ScheduleTasks/ScheduleTasks';
@@ -7,11 +7,11 @@ import HomeFilled from '../../assets/img/home_alt_fill.png';
 import HomeImg from '../../assets/img/home.png';
 import CalenderFilled from '../../assets/img/calendar_fill.png';
 import Calender from '../../assets/img/calendar.png';
-import Notification from '../Notification/Notification';
 import BellImg from '../../assets/img/bell.png';
 import BellFillImg from '../../assets/img/bell_fill.png';
-import {messageStore} from '../../store/messageStore';
 import {observer} from 'mobx-react-lite';
+import NotificationStack from '../Notification/NotificationStack';
+import {messageStore} from '../../store/messageStore';
 
 const Tab = createBottomTabNavigator();
 
@@ -36,6 +36,16 @@ const NotificationTabIcon = ({focused}) => (
 );
 
 const HomeTabNavigator = observer(() => {
+  const [read, setRead] = useState([]);
+
+  const {socket, notificationMessages} = messageStore;
+  useEffect(() => {
+    socket.on('sync', id => {
+      setRead(prev => prev.filter(item => item.id !== id));
+    });
+    messageStore.fetchNotificationMessages();
+    setRead(notificationMessages);
+  }, [socket, notificationMessages]);
   return (
     <Tab.Navigator>
       <Tab.Screen
@@ -55,15 +65,12 @@ const HomeTabNavigator = observer(() => {
         }}
       />
       <Tab.Screen
-        name="notification"
-        component={Notification}
+        name="NotiStack"
+        component={NotificationStack}
         options={{
           headerShown: false,
           tabBarIcon: ({focused}) => <NotificationTabIcon focused={focused} />,
-          // tabBarBadge:
-          //   messageStore.messages.length > 0
-          //     ? messageStore.messages.length
-          //     : null,
+          tabBarBadge: read.length > 0 ? read.length : null,
         }}
       />
     </Tab.Navigator>

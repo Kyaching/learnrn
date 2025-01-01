@@ -9,67 +9,88 @@ import {
 import React, {useEffect, useState} from 'react';
 import Button from '../Button/Button';
 import Select from '../SelectOption/Select';
+import {messageStore} from '../../store/messageStore';
+import {observer} from 'mobx-react-lite';
 
-const ModalItem = ({
-  modalVisible,
-  setModalVisible,
-  selectedUser,
-  setSelectedUser,
-  receivers,
-  setSubject,
-  subject,
-  body,
-  setBody,
-  handleSendMessage,
-}) => {
-  return (
-    <Modal animationType="slide" transparent={true} visible={modalVisible}>
-      <View style={styles.centeredView}>
-        <View style={styles.modalView}>
-          <Pressable
-            style={[styles.button]}
-            onPress={() => setModalVisible(!modalVisible)}>
-            <Text style={styles.textStyle}>X</Text>
-          </Pressable>
+const ModalItem = observer(
+  ({
+    selectedUser,
+    setSelectedUser,
+    receivers,
+    setSubject,
+    subject,
+    body,
+    setBody,
+    handleSendMessage,
+    handleDraftMessage,
+    handleUpdateMessage,
+    handleSaveMessage,
+  }) => {
+    const {from} = messageStore;
+    return (
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={messageStore.modalVisible}>
+        <View style={styles.centeredView}>
+          <View style={styles.modalView}>
+            <Pressable
+              style={[styles.button]}
+              onPress={() => messageStore.setModalVisible(false, 'global')}>
+              <Text style={styles.textStyle}>X</Text>
+            </Pressable>
 
-          <Select
-            receivers={receivers}
-            selectedUser={selectedUser}
-            setSelectedUser={setSelectedUser}
-          />
-
-          <TextInput
-            placeholder="Subject"
-            value={subject}
-            onChangeText={e => setSubject(e)}
-            style={styles.inputField}
-            inputMode="text"
-            autoCapitalize="none"
-          />
-          <TextInput
-            placeholder="Body"
-            value={body}
-            onChangeText={e => setBody(e)}
-            style={[styles.inputField, {height: 200}]}
-            inputMode="text"
-            textAlignVertical="top"
-            multiline
-            autoCapitalize="none"
-          />
-          <View
-            style={{flexDirection: 'row', gap: 7, justifyContent: 'flex-end'}}>
-            <Button
-              onPress={() => handleSendMessage()}
-              label={'Send'}
-              style={{width: 60}}
+            <Select
+              receivers={receivers}
+              selectedUser={selectedUser}
+              setSelectedUser={setSelectedUser}
             />
-            <Button label={'Draft'} style={{width: 60}} />
+
+            <TextInput
+              placeholder="Subject"
+              value={subject}
+              onChangeText={e => setSubject(e)}
+              style={styles.inputField}
+              inputMode="text"
+              autoCapitalize="none"
+            />
+            <TextInput
+              placeholder="Body"
+              value={body}
+              onChangeText={e => setBody(e)}
+              style={[styles.inputField, {height: 200}]}
+              inputMode="text"
+              textAlignVertical="top"
+              multiline
+              autoCapitalize="none"
+            />
+            <View
+              style={{
+                flexDirection: 'row',
+                gap: 7,
+                justifyContent: 'flex-end',
+              }}>
+              <Button
+                onPress={() =>
+                  from === 'draft' ? handleUpdateMessage() : handleSendMessage()
+                }
+                label={'Send'}
+                style={{width: 60}}
+              />
+              <Button
+                onPress={() =>
+                  from === 'draft' ? handleSaveMessage() : handleDraftMessage()
+                }
+                label={from === 'draft' ? 'save' : 'Draft'}
+                style={{width: 60}}
+              />
+            </View>
           </View>
         </View>
-      </View>
-    </Modal>
-  );
-};
+      </Modal>
+    );
+  },
+);
 
 export default ModalItem;
 

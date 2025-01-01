@@ -1,13 +1,14 @@
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
-import React, {useCallback, useEffect, useState} from 'react';
-import {messageStore, URL} from '../../store/messageStore';
+import React, {useEffect, useState} from 'react';
+import {ACCESS_TOKEN, messageStore, URL} from '../../store/messageStore';
 import {observer} from 'mobx-react-lite';
 import BackButton from '../../components/BackButton/BackButton';
 import {useNavigation} from '@react-navigation/native';
@@ -17,31 +18,76 @@ import ModalItem from '../../components/Modal/ModalItem';
 import SentScreen from './SentScreen';
 import DraftScreen from './DraftScreen';
 import uuid from 'react-native-uuid';
+import Trash from '../../assets/img/trash.png';
+import {TouchableWithoutFeedback} from 'react-native-gesture-handler';
 
 const Notification = observer(() => {
-  const [modalVisible, setModalVisible] = useState(false);
   const [subject, setSubject] = useState('');
   const [body, setBody] = useState('');
   const {navigate} = useNavigation();
-  const [inboxMessages, setInboxMessages] = useState([]);
-  const [receivers, setReceivers] = useState([]);
-  const [selectedTab, setSelectedTab] = useState('inbox');
-  const [selectedUser, setSelectedUser] = useState([]);
-  const [currentPage, setCurrentPage] = useState(0);
-  const [loading, setLoading] = useState(false);
 
-  const {socket, users, fetchUsers} = messageStore;
+  const [receivers, setReceivers] = useState([]);
+  const [selectedUser, setSelectedUser] = useState([]);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [currentRoute, setCurrentRoute] = useState('received');
+  const [draftMessage, setDraftMessage] = useState({});
+  const {id: draftId, sender, parentid: draftParentId} = draftMessage;
+
+  const {
+    socket,
+    users,
+    receivedMessages,
+    sentMessages,
+    draftMessages,
+    totalReceived,
+    totalSent,
+    totalDraft,
+  } = messageStore;
+
+  useEffect(() => {
+    messageStore.fetchUsers();
+    messageStore.fetchTotalReceived();
+    messageStore.fetchTotalDraft();
+    messageStore.fetchTotalSent();
+  }, []);
+
+  useEffect(() => {
+    messageStore.fetchReceivedMessages('received');
+    messageStore.fetchSentMessages('sent');
+    messageStore.fetchDraftMessages('draft');
+  }, [currentRoute]);
 
   useEffect(() => {
     socket.on('receivedMessage', msg => {
-      setInboxMessages(prev => [msg, ...prev]);
+      const newMessage = {...msg, readers: ['John']};
+      messageStore.appendMessage('received', newMessage);
     });
-    fetchNotificationMessages();
-    fetchUsers();
+    socket.on('sentMessage', msg => {
+      messageStore.appendMessage('sent', msg);
+    });
+    socket.on('draftMessage', msg => {
+      messageStore.appendMessage('draft', msg);
+    });
+    socket.on('draftMessageId', id => {
+      messageStore.filterDraftMessages(id);
+    });
+
+    socket.on('deletedMessage', id => {
+      messageStore.deleteMessage(id);
+    });
+    socket.on('sync', async id => {
+      messageStore.syncReaders(id, 'John');
+    });
+
     return () => {
       socket.off('receivedMessage');
+      socket.off('sentMessage');
+      socket.off('draftMessage');
+      socket.off('draftMessageId');
+      socket.off('deleteMessage');
+      socket.off('sync');
     };
-  }, [socket, fetchUsers, fetchNotificationMessages]);
+  }, [socket]);
 
   useEffect(() => {
     setReceivers(
@@ -58,6 +104,7 @@ const Notification = observer(() => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
         },
         body: JSON.stringify(data),
       });
@@ -69,6 +116,64 @@ const Notification = observer(() => {
     } catch (error) {
       console.log('Error fetching Data', error);
     }
+  };
+  const updateMessage = async data => {
+    try {
+      const response = await fetch(`${URL}/messages/${draftId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${ACCESS_TOKEN}`,
+        },
+        body: JSON.stringify(data),
+      });
+      if (!response.ok) {
+        throw new Error(`HTTP Error! status:${response.status}`);
+      }
+      const result = await response.json();
+      console.log(result);
+    } catch (error) {
+      console.log('Error fetching Data', error);
+    }
+  };
+
+  const handleUpdateMessage = () => {
+    const message = {
+      id: draftId,
+      sender,
+      recivers: selectedUser,
+      body,
+      subject,
+      date: new Date(),
+      status: 'Sent',
+      parentid: draftParentId,
+      involvedusers: [...selectedUser, 'John'],
+      readers: selectedUser,
+      holders: [...selectedUser, 'John'],
+      recyclebin: [],
+    };
+    console.log('draftMessage', message);
+    socket.emit('draftMsgId', {id: draftId, user: 'John'});
+    socket.emit('sendMessage', message);
+    updateMessage(message);
+  };
+  const handleSaveMessage = () => {
+    const message = {
+      id: draftId,
+      sender,
+      recivers: selectedUser,
+      body,
+      subject,
+      date: new Date(),
+      status: 'Draft',
+      parentid: draftParentId,
+      involvedusers: [...selectedUser, 'John'],
+      readers: selectedUser,
+      holders: [...selectedUser, 'John'],
+      recyclebin: [],
+    };
+    socket.emit('sendDraft', message);
+    updateMessage(message);
   };
 
   const handleSendMessage = () => {
@@ -91,34 +196,227 @@ const Notification = observer(() => {
     postMessage(message);
   };
 
-  const fetchNotificationMessages = useCallback(async () => {
-    setLoading(true);
-    const nextPage = currentPage + 1;
+  const handleDraftMessage = () => {
+    const id = uuid.v4();
+    const message = {
+      id: id,
+      sender: 'John',
+      recivers: selectedUser,
+      body,
+      subject,
+      date: new Date(),
+      status: 'Draft',
+      parentid: id,
+      involvedusers: [...selectedUser, 'John'],
+      readers: selectedUser,
+      holders: [...selectedUser, 'John'],
+      recyclebin: [],
+    };
+    socket.emit('sendDraft', message);
+    postMessage(message);
+  };
+
+  const deleteMultipleMessage = async data => {
     try {
-      const response = await fetch(`${URL}/messages/received/John/${nextPage}`);
+      const response = await fetch(
+        `${URL}/messages/move-multiple-to-recyclebin`,
+        {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${ACCESS_TOKEN}`,
+          },
+          body: JSON.stringify(data),
+        },
+      );
       if (!response.ok) {
         throw new Error(`HTTP Error! status:${response.status}`);
       }
-      const data = await response.json();
-      setLoading(false);
-      setCurrentPage(nextPage);
-      setInboxMessages([...inboxMessages, ...data]);
+      const result = await response.json();
+      console.log(result);
     } catch (error) {
-      setLoading(false);
       console.log('Error fetching Data', error);
     }
-  }, [currentPage, inboxMessages]);
+  };
+
+  const handleMultipleDelete = () => {
+    const info = {ids: selectedItems, user: 'John'};
+    socket.emit('multipleDelete', info);
+    deleteMultipleMessage(info);
+  };
 
   const renderScreen = () => {
-    switch (selectedTab) {
-      case 'inbox':
+    switch (currentRoute) {
+      case 'received':
         return (
           <FlatList
             showsVerticalScrollIndicator={false}
-            data={inboxMessages}
-            renderItem={({item}) => <InboxScreen item={item} />}
+            data={receivedMessages}
+            renderItem={({item}) => (
+              <InboxScreen
+                selectedItems={selectedItems}
+                setSelectedItems={setSelectedItems}
+                item={item}
+              />
+            )}
+            keyExtractor={(item, index) => item.id.toString()}
+            onEndReached={() => {
+              receivedMessages.length !== totalReceived &&
+                messageStore.fetchReceivedMessages('received');
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={() => {
+              return (
+                <View
+                  style={{
+                    width: '90%',
+                    height: 60,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                  {messageStore.isLoading && (
+                    <ActivityIndicator size={'large'} />
+                  )}
+                </View>
+              );
+            }}
+          />
+        );
+      case 'sent':
+        return (
+          <FlatList
+            showsVerticalScrollIndicator={false}
+            data={sentMessages}
+            renderItem={({item}) => <SentScreen item={item} />}
             keyExtractor={item => item.id}
-            onEndReached={fetchNotificationMessages}
+            onEndReached={() => {
+              sentMessages.length !== totalSent &&
+                messageStore.fetchSentMessages(currentRoute);
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={() => {
+              return (
+                <View
+                  style={{
+                    width: '90%',
+                    height: 60,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                  {messageStore.isLoading && (
+                    <ActivityIndicator size={'large'} />
+                  )}
+                </View>
+              );
+            }}
+          />
+        );
+      case 'draft':
+        return (
+          <FlatList
+            showsVerticalScrollIndicator={false}
+            data={draftMessages}
+            renderItem={({item}) => (
+              <DraftScreen
+                item={item}
+                draftMessage={draftMessage}
+                setDraftMessage={setDraftMessage}
+                setSubject={setSubject}
+                setBody={setBody}
+                setSelectedUser={setSelectedUser}
+              />
+            )}
+            keyExtractor={item => item.id}
+            onEndReached={() => {
+              draftMessages.length !== totalDraft &&
+                messageStore.fetchDraftMessages('draft');
+            }}
+            onEndReachedThreshold={0.5}
+            ListFooterComponent={() => {
+              return (
+                <View
+                  style={{
+                    width: '90%',
+                    height: 60,
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                  }}>
+                  {messageStore.isLoading && (
+                    <ActivityIndicator size={'large'} />
+                  )}
+                </View>
+              );
+            }}
+          />
+        );
+    }
+  };
+
+  return (
+    <View style={styles.container}>
+      <ModalItem
+        selectedUser={selectedUser}
+        setSelectedUser={setSelectedUser}
+        receivers={receivers}
+        setSubject={setSubject}
+        subject={subject}
+        setBody={setBody}
+        body={body}
+        handleSendMessage={handleSendMessage}
+        handleDraftMessage={handleDraftMessage}
+        handleUpdateMessage={handleUpdateMessage}
+        handleSaveMessage={handleSaveMessage}
+      />
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+        }}>
+        <BackButton onPress={() => navigate('HomeScreen')} />
+        {selectedItems.length ? (
+          <TouchableWithoutFeedback onPress={() => handleMultipleDelete()}>
+            <Image source={Trash} style={{width: 25, height: 25}} />
+          </TouchableWithoutFeedback>
+        ) : (
+          <Text style={styles.text}>Notification</Text>
+        )}
+      </View>
+      <View
+        style={{
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+        }}>
+        <MessageButton
+          title="Inbox"
+          value={totalReceived}
+          onPress={() => setCurrentRoute('received')}
+        />
+        <MessageButton
+          title="Sent"
+          value={totalSent}
+          onPress={() => setCurrentRoute('sent')}
+        />
+        <MessageButton
+          title="Draft"
+          value={totalDraft}
+          onPress={() => setCurrentRoute('draft')}
+        />
+      </View>
+      <View
+        style={{
+          marginTop: 20,
+        }}>
+        <View style={{marginBottom: 40}}>
+          {renderScreen()}
+          {/* <FlatList
+            showsVerticalScrollIndicator={false}
+            data={currentRoute === 'received' && receivedMessages}
+            renderItem={({item}) => renderScreen(item)}
+            keyExtractor={(item, index) => item.id + index}
+            onEndReached={() =>
+              messageStore.fetchReceivedMessages(currentRoute)
+            }
             onEndReachedThreshold={0.1}
             ListFooterComponent={() => {
               return (
@@ -133,79 +431,11 @@ const Notification = observer(() => {
                 </View>
               );
             }}
-          />
-        );
-      case 'sent':
-        return (
-          <FlatList
-            data={inboxMessages}
-            renderItem={({item}) => <SentScreen item={item} />}
-            keyExtractor={item => item.id}
-          />
-        );
-      case 'draft':
-        return (
-          <FlatList
-            data={inboxMessages}
-            renderItem={({item}) => <DraftScreen item={item} />}
-            keyExtractor={item => item.id}
-          />
-        );
-    }
-  };
-
-  return (
-    <View style={styles.container}>
-      <ModalItem
-        modalVisible={modalVisible}
-        setModalVisible={setModalVisible}
-        selectedUser={selectedUser}
-        setSelectedUser={setSelectedUser}
-        receivers={receivers}
-        setSubject={setSubject}
-        subject={subject}
-        setBody={setBody}
-        body={body}
-        handleSendMessage={handleSendMessage}
-      />
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-        }}>
-        <BackButton onPress={() => navigate('HomeScreen')} />
-        <Text style={styles.text}>Notification</Text>
-      </View>
-      <View
-        style={{
-          flexDirection: 'row',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-        }}>
-        <MessageButton
-          title="Inbox"
-          value={inboxMessages?.length}
-          onPress={() => setSelectedTab('inbox')}
-        />
-        <MessageButton
-          title="Sent"
-          value={'3'}
-          onPress={() => setSelectedTab('sent')}
-        />
-        <MessageButton
-          title="Draft"
-          value="2"
-          onPress={() => setSelectedTab('draft')}
-        />
-      </View>
-      <View
-        style={{
-          marginTop: 20,
-        }}>
-        <View style={{marginBottom: 40}}>{renderScreen()}</View>
+          /> */}
+        </View>
       </View>
       <Pressable
-        onPress={() => setModalVisible(true)}
+        onPress={() => messageStore.setModalVisible(true, 'global')}
         style={({pressed}) => [
           {opacity: pressed ? 0.5 : 1},
           {
