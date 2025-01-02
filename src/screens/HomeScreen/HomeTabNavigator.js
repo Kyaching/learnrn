@@ -1,4 +1,4 @@
-import {Image, StyleSheet} from 'react-native';
+import {Image} from 'react-native';
 import React, {useEffect, useState} from 'react';
 import {createBottomTabNavigator} from '@react-navigation/bottom-tabs';
 import HomeScreen from './HomeScreen';
@@ -78,5 +78,3 @@ const HomeTabNavigator = observer(() => {
 });
 
 export default HomeTabNavigator;
-
-const styles = StyleSheet.create({});

@@ -8,7 +8,7 @@ import {
   View,
 } from 'react-native';
 import React, {useEffect, useState} from 'react';
-import {ACCESS_TOKEN, messageStore, URL} from '../../store/messageStore';
+import {messageStore, ACCESS_TOKEN} from '../../store/messageStore';
 import {observer} from 'mobx-react-lite';
 import BackButton from '../../components/BackButton/BackButton';
 import {useNavigation} from '@react-navigation/native';
@@ -20,6 +20,7 @@ import DraftScreen from './DraftScreen';
 import uuid from 'react-native-uuid';
 import Trash from '../../assets/img/trash.png';
 import {TouchableWithoutFeedback} from 'react-native-gesture-handler';
+import {URL} from '@env';
 
 const Notification = observer(() => {
   const [subject, setSubject] = useState('');
@@ -112,7 +113,6 @@ const Notification = observer(() => {
         throw new Error(`HTTP Error! status:${response.status}`);
       }
       const result = await response.json();
-      console.log(result);
     } catch (error) {
       console.log('Error fetching Data', error);
     }
@@ -131,7 +131,6 @@ const Notification = observer(() => {
         throw new Error(`HTTP Error! status:${response.status}`);
       }
       const result = await response.json();
-      console.log(result);
     } catch (error) {
       console.log('Error fetching Data', error);
     }
@@ -152,7 +151,6 @@ const Notification = observer(() => {
       holders: [...selectedUser, 'John'],
       recyclebin: [],
     };
-    console.log('draftMessage', message);
     socket.emit('draftMsgId', {id: draftId, user: 'John'});
     socket.emit('sendMessage', message);
     updateMessage(message);
@@ -233,7 +231,6 @@ const Notification = observer(() => {
         throw new Error(`HTTP Error! status:${response.status}`);
       }
       const result = await response.json();
-      console.log(result);
     } catch (error) {
       console.log('Error fetching Data', error);
     }
@@ -407,32 +404,7 @@ const Notification = observer(() => {
         style={{
           marginTop: 20,
         }}>
-        <View style={{marginBottom: 40}}>
-          {renderScreen()}
-          {/* <FlatList
-            showsVerticalScrollIndicator={false}
-            data={currentRoute === 'received' && receivedMessages}
-            renderItem={({item}) => renderScreen(item)}
-            keyExtractor={(item, index) => item.id + index}
-            onEndReached={() =>
-              messageStore.fetchReceivedMessages(currentRoute)
-            }
-            onEndReachedThreshold={0.1}
-            ListFooterComponent={() => {
-              return (
-                <View
-                  style={{
-                    width: '90%',
-                    height: 60,
-                    justifyContent: 'center',
-                    alignItems: 'center',
-                  }}>
-                  {loading && <ActivityIndicator size={'large'} />}
-                </View>
-              );
-            }}
-          /> */}
-        </View>
+        <View style={{marginBottom: 40}}>{renderScreen()}</View>
       </View>
       <Pressable
         onPress={() => messageStore.setModalVisible(true, 'global')}

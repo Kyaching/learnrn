@@ -10,6 +10,7 @@ import {
 import React, {useState} from 'react';
 import Button from '../Button/Button';
 import Check from '../../assets/img/check.png';
+import {TextInput} from 'react-native-gesture-handler';
 
 const RenderItem = ({user, Onpress, selectedUser}) => (
   <Pressable
@@ -30,6 +31,8 @@ const RenderItem = ({user, Onpress, selectedUser}) => (
 
 const Select = ({receivers, selectedUser, setSelectedUser}) => {
   const [selected, setSelected] = useState(false);
+  const [searchUser, setSearchUser] = useState('');
+  const [filterUsers, setFilterUsers] = useState(receivers);
 
   const handleSelectedUser = user_name => {
     setSelectedUser(prevSelected =>
@@ -38,6 +41,20 @@ const Select = ({receivers, selectedUser, setSelectedUser}) => {
         : [user_name, ...prevSelected],
     );
   };
+
+  const handleSelectAll = () => {
+    setSelectedUser(receivers.map(user => user.user_name));
+  };
+
+  const filterUsersOptions = text => {
+    setSearchUser(text);
+    setFilterUsers(
+      receivers.filter(user =>
+        user.user_name.toLowerCase().includes(text.toLowerCase()),
+      ),
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Button
@@ -58,8 +75,34 @@ const Select = ({receivers, selectedUser, setSelectedUser}) => {
       </View>
       {selected && (
         <View style={styles.dropArea}>
+          <TextInput
+            placeholder="Search"
+            value={searchUser}
+            onChangeText={filterUsersOptions}
+            style={{
+              borderWidth: 1,
+              borderColor: 'gray',
+              height: 40,
+              paddingHorizontal: 10,
+              borderRadius: 4,
+            }}
+            inputMode="text"
+            autoCapitalize="none"
+          />
+          <Pressable
+            onPress={() => handleSelectAll()}
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              paddingHorizontal: 10,
+              marginVertical: 5,
+            }}>
+            <Text>All</Text>
+            {/* <Image source={Check} style={{width: 20, height: 20}} /> */}
+          </Pressable>
           <FlatList
-            data={receivers}
+            data={filterUsers}
             renderItem={({item}) => (
               <RenderItem
                 selectedUser={selectedUser}

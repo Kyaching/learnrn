@@ -1,10 +1,10 @@
-import {Pressable, StyleSheet, Text, View} from 'react-native';
+import {Pressable, Text, View} from 'react-native';
 import React from 'react';
 import {useNavigation} from '@react-navigation/native';
 
 const SentScreen = ({item}) => {
   const navigation = useNavigation();
-  const {sender, subject, date, recivers} = item;
+  const {subject, date, recivers} = item;
   const usernames = recivers.map(name => name.split('@')[0]);
   return (
     <Pressable
@@ -61,5 +61,3 @@ const SentScreen = ({item}) => {
 };
 
 export default SentScreen;
-
-const styles = StyleSheet.create({});

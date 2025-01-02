@@ -1,5 +1,5 @@
-import {Pressable, StyleSheet, Text, View} from 'react-native';
-import React from 'react';
+import {Pressable, Text, View} from 'react-native';
+import React, {useEffect} from 'react';
 import {useNavigation} from '@react-navigation/native';
 import {messageStore} from '../../store/messageStore';
 import {observer} from 'mobx-react-lite';
@@ -9,22 +9,28 @@ const InboxScreen = observer(({item, selectedItems, setSelectedItems}) => {
   const {sender, subject, date} = item;
 
   const handleOnPress = async id => {
-    if (selectedItems.length) {
-      return handleLongPressedDelete(id);
-    }
-    try {
-      messageStore.updateReaders(item.parentid);
-      if (item?.readers?.includes('John')) {
-        messageStore.socket.emit('read', {id: id, user: 'John'});
-      }
-    } catch (error) {
-      console.log(error);
-    }
-
     navigation.navigate('details', {
       parentId: item.parentid,
       id: item.id,
     });
+    // if (selectedItems.length) {
+    //   return handleLongPressedDelete(id);
+    // }
+    if (item.readers.includes('John')) {
+      await messageStore.updateReaders(item.parentid);
+      messageStore.socket.emit('read', {id: id, user: 'John'});
+      if (messageStore.reader === 'success') {
+        navigation.navigate('details', {
+          parentId: item.parentid,
+          id: item.id,
+        });
+      }
+    } else {
+      navigation.navigate('details', {
+        parentId: item.parentid,
+        id: item.id,
+      });
+    }
   };
 
   const handleLongPressedDelete = id => {
@@ -84,5 +90,3 @@ const InboxScreen = observer(({item, selectedItems, setSelectedItems}) => {
 });
 
 export default InboxScreen;
-
-const styles = StyleSheet.create({});

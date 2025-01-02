@@ -1,13 +1,14 @@
 import {makeAutoObservable, runInAction} from 'mobx';
 import {io} from 'socket.io-client';
+import {URL} from '@env';
 
-export const URL = 'https://procg.viscorp.app/api/v1';
 export const ACCESS_TOKEN =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc0xvZ2dlZEluIjp0cnVlLCJ1c2VyX2lkIjoxMDMsInVzZXJfdHlwZSI6InBlcnNvbiIsInVzZXJfbmFtZSI6IkpvaG4iLCJ0ZW5hbnRfaWQiOjExMDEsImlzc3VlZEF0IjoiMjAyNS0wMS0wMVQxNToxOToxNS44ODdaIiwiaWF0IjoxNzM1NzQ0NzU1LCJleHAiOjE3MzU3NDgzNTV9.FPXNfszrWr8qmdMHGlO2wzTH5bnOHVH5yFzH3rUUjRY';
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc0xvZ2dlZEluIjp0cnVlLCJ1c2VyX2lkIjoxMDMsInVzZXJfdHlwZSI6InBlcnNvbiIsInVzZXJfbmFtZSI6IkpvaG4iLCJ0ZW5hbnRfaWQiOjExMDEsImlzc3VlZEF0IjoiMjAyNS0wMS0wMlQwODo1MTozOC40OTdaIiwiaWF0IjoxNzM1ODA3ODk4LCJleHAiOjE3MzU4MTE0OTh9.X9qh4iZvJp0rMKmIkLmOZqODHC69D2q9-zSRt6D9sjI';
 
 class Message {
   users = [];
   from = 'global';
+  reader = '';
   modalVisible = false;
   uniqueMessage = {};
   replyMessages = [];
@@ -45,7 +46,6 @@ class Message {
     }
     this.isLoading = true;
     try {
-      console.log(`${URL}/messages/${route}/John/${this.nextPage[route]}`);
       const response = await fetch(
         `${URL}/messages/${route}/John/${this.nextPage[route]}`,
         {
@@ -76,7 +76,8 @@ class Message {
     } catch (error) {
       runInAction(() => {
         this.isLoading = false;
-        console.log('Error fetching Data', error);
+        console.log('isLoading', this.isLoading);
+        console.log('Error fetching Received Messages data', error);
       });
     }
   }
@@ -88,7 +89,6 @@ class Message {
     }
     this.isLoading = true;
     try {
-      console.log(`${URL}/messages/${route}/John/${this.nextPage[route]}`);
       const response = await fetch(
         `${URL}/messages/${route}/John/${this.nextPage[route]}`,
         {
@@ -119,7 +119,7 @@ class Message {
     } catch (error) {
       runInAction(() => {
         this.isLoading = false;
-        console.log('Error fetching Data', error);
+        console.log('Error fetching sent messages Data', error);
       });
     }
   }
@@ -131,7 +131,6 @@ class Message {
     }
     this.isLoading = true;
     try {
-      console.log(`${URL}/messages/${route}/John/${this.nextPage[route]}`);
       const response = await fetch(
         `${URL}/messages/${route}/John/${this.nextPage[route]}`,
         {
@@ -162,7 +161,7 @@ class Message {
     } catch (error) {
       runInAction(() => {
         this.isLoading = false;
-        console.log('Error fetching Data', error);
+        console.log('Error fetching draft messages Data', error);
       });
     }
   }
@@ -175,9 +174,15 @@ class Message {
         this.sentMessages = [message, ...this.sentMessages];
         this.totalSent += 1;
       } else if (route === 'draft') {
-        this.draftMessages = [message, ...this.draftMessages];
-
+        this.draftMessages = [
+          message,
+          ...this.draftMessages.filter(msg => msg.id !== message.id),
+        ];
+        this.uniqueMessage = message;
         this.totalDraft += 1;
+        if (this.totalDraft > this.draftMessages.length) {
+          this.totalDraft = this.draftMessages.length;
+        }
       } else if (route === 'reply') {
         this.replyMessages = [message, ...this.replyMessages];
       }
@@ -187,6 +192,7 @@ class Message {
     runInAction(() => {
       this.totalDraft -= 1;
       this.draftMessages = this.draftMessages.filter(msg => msg.id !== id);
+      this.uniqueMessage = {};
     });
   }
   deleteMessage(id) {
@@ -197,7 +203,6 @@ class Message {
 
   async fetchTotalReceived() {
     try {
-      // console.log(`${URL}/messages/notification/John`);
       const response = await fetch(`${URL}/messages/total-received/John`, {
         headers: {
           'Content-route': 'application/json',
@@ -214,7 +219,7 @@ class Message {
       });
     } catch (error) {
       this.isLoading = false;
-      console.log('Error fetching Data', error);
+      console.log('Error in Total Received', error);
     }
   }
   async fetchTotalSent() {
@@ -236,12 +241,11 @@ class Message {
       });
     } catch (error) {
       this.isLoading = false;
-      console.log('Error fetching Data', error);
+      console.log('Error in Totalsent', error);
     }
   }
   async fetchTotalDraft() {
     try {
-      // console.log(`${URL}/messages/notification/John`);
       const response = await fetch(`${URL}/messages/total-draft/John`, {
         headers: {
           'Content-route': 'application/json',
@@ -258,7 +262,7 @@ class Message {
       });
     } catch (error) {
       this.isLoading = false;
-      console.log('Error fetching Data', error);
+      console.log('Error in Totaldraft', error);
     }
   }
 
@@ -272,7 +276,6 @@ class Message {
 
   async fetchNotificationMessages() {
     try {
-      // console.log(`${URL}/messages/notification/John`);
       const response = await fetch(`${URL}/messages/notification/John`, {
         headers: {
           'Content-route': 'application/json',
@@ -285,11 +288,9 @@ class Message {
       const data = await response.json();
       runInAction(() => {
         this.notificationMessages = data;
-        // console.log(this.notificationMessages.length);
-        // console.log(this.totalReceived);
       });
     } catch (error) {
-      console.log('Error fetching Data', error);
+      console.log('Error fetching Notification Count Data', error);
     }
   }
   async fetchReplyMessages(parentId) {
@@ -313,22 +314,26 @@ class Message {
   }
   async updateReaders(parentId) {
     try {
-      console.log(`${URL}/messages/update-readers/${parentId}/John`);
       const response = await fetch(
         `${URL}/messages/update-readers/${parentId}/John`,
-
         {
           method: 'PUT',
           headers: {
             'Content-route': 'application/json',
             Authorization: `Bearer ${ACCESS_TOKEN}`,
           },
+          body: JSON.stringify(parentId),
         },
       );
       if (!response.ok) {
         throw new Error(`HTTP Error! status:${response.status}`);
       }
       const data = await response.json();
+      runInAction(() => {
+        if (data) {
+          this.reader = 'success';
+        }
+      });
     } catch (error) {
       console.log('Error fetching Data', error);
     }
@@ -349,7 +354,7 @@ class Message {
         this.users = data;
       });
     } catch (error) {
-      console.log('Error fetching Data', error);
+      console.log('Error fetching Users Data', error);
     }
   }
   async fetchUniqueMessage(id) {
@@ -369,7 +374,7 @@ class Message {
         this.uniqueMessage = data;
       });
     } catch (error) {
-      console.log('Error fetching Data', error);
+      console.log('Error fetching uniquemessage Data', error);
     }
   }
 }

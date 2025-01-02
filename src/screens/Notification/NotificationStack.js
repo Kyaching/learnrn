@@ -1,4 +1,3 @@
-import {StyleSheet, Text, View} from 'react-native';
 import React from 'react';
 import {createNativeStackNavigator} from '@react-navigation/native-stack';
 import Notification from './Notification';
@@ -16,5 +15,3 @@ const NotificationStack = () => {
 };
 
 export default NotificationStack;
-
-const styles = StyleSheet.create({});

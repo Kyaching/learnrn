@@ -53,7 +53,6 @@ const ReplyModal = ({
               label={'Send'}
               style={{width: 60}}
             />
-            <Button label={'Draft'} style={{width: 60}} />
           </View>
         </View>
       </View>

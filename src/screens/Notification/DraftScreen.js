@@ -1,5 +1,5 @@
 import {Pressable, Text, View} from 'react-native';
-import React, {useEffect, useState} from 'react';
+import React, {useEffect} from 'react';
 import {useNavigation} from '@react-navigation/native';
 
 const DraftScreen = ({
@@ -12,6 +12,14 @@ const DraftScreen = ({
   const navigation = useNavigation();
   const {subject, date, recivers, id, body, parentid, sender} = item;
   const usernames = recivers.map(name => name.split('@')[0]);
+
+  useEffect(() => {
+    return () => {
+      setSubject('');
+      setBody('');
+      setSelectedUser([]);
+    };
+  }, [setBody, setSubject, setSelectedUser]);
 
   useEffect(() => {
     setDraftMessage(item);
@@ -27,6 +35,9 @@ const DraftScreen = ({
       id,
       sender,
       parentid,
+      subject,
+      body,
+      recivers,
     };
     setDraftMessage(message);
 
